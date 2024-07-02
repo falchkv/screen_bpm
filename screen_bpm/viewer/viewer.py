@@ -1,3 +1,4 @@
+import copy
 import threading
 import time
 
@@ -15,6 +16,7 @@ from screen_bpm.viewer.image_grid_plotter import PltGridPlotter
 class Viewer:
     def __init__(self, experiment_path, screen_names, screen_bpm,
                  xy_offsets={}, debug_mode=False, reference_uvs=None,
+                 reference_screen_bpm=None, reference_screen_names=None,
                  update_triggerer=None):
         self.maximum_update_rate = 3.0  # Hz
         self.screen_names = screen_names
@@ -38,6 +40,8 @@ class Viewer:
         self.frame_counter = 0
 
         self.screen_bpm = screen_bpm
+        self.reference_screen_bpm = reference_screen_bpm
+        self.reference_screen_names = reference_screen_names
 
     def start_monitoring(self):
         poll_delay = 1.0 / self.maximum_update_rate
@@ -68,6 +72,8 @@ class Viewer:
         self.frame_counter += 1
 
     def process_data(self, data):
+
+        self.xy_offsets['LM3'] = 10e-3*numpy.random.rand(2)# FAKE oFFSET
         # update xy_offsets
         for screen, screen_name in zip(self.screen_bpm.screens, self.screen_names):
             if screen_name in self.xy_offsets:
@@ -78,8 +84,7 @@ class Viewer:
         screen_zs = [screen.z_position for screen in self.screen_bpm.screens]
         extra_zs = [0, 90, 95]
         zs = numpy.array(sorted(screen_zs + extra_zs))
-        beam_xy, beam_angles = Viewer.compute_beam(
-            uv_points, zs, self.data_loader.screen_names)
+        beam_xy, beam_angles = self.compute_beam(uv_points, zs)
 
         # Calculate screen xyz intersects
         ordered_uv_points = Viewer._order_uv_points(
@@ -98,9 +103,9 @@ class Viewer:
         }
 
         # create reference beam
-        if self.reference_uvs is not None:
-            beam_xy_ref, beam_angles_ref = Viewer.compute_beam(
-                self.reference_uvs, zs, self.data_loader.screen_names)
+        if self.reference_uvs is not None and self.reference_screen_bpm is not None and self.reference_screen_names is not None:
+            beam_xy_ref, beam_angles_ref = self.compute_reference_beam(zs)
+            print(beam_xy_ref)
             processed_dict['reference'] = {
                 'beam_xy': beam_xy_ref,
                 'beam_angles': beam_angles_ref,
@@ -146,19 +151,17 @@ class Viewer:
                 ordered_uv_points[index] = uv_point
         return ordered_uv_points
 
-    @staticmethod
-    def compute_beam(uv_points, z_beam_positions, screen_names):
+
+    def compute_beam(self, uv_points, z_beam_positions):
         """
         Parameters
         ----------
+
         uv_points : dict
             Dictionary of uv points, whose keys are the keys are screen names.
 
         z_beam_positions : numpy.ndarray
             Z-coordinates of plane where beam intersection is to be computed.
-
-        screen_names : list or tuple
-            List of screen names in same order as it is in the bpm.
 
         Returns
         -------
@@ -169,8 +172,30 @@ class Viewer:
             The x and y angles
         """
         # self.screen_bpm requires uv points to be fed in correct order
-        ordered_uv_points = Viewer._order_uv_points(uv_points, screen_names)
-        beam_xy, beam_angles = bpm.compute_beam_metrics(
+        ordered_uv_points = Viewer._order_uv_points(uv_points, self.screen_names)
+        beam_xy, beam_angles = self.screen_bpm.compute_beam_metrics(
+            ordered_uv_points, z_beam_positions
+        )
+        return beam_xy, beam_angles
+
+    def compute_reference_beam(self, z_beam_positions):
+        """
+        Parameters
+        ----------
+        z_beam_positions : numpy.ndarray
+            Z-coordinates of plane where beam intersection is to be computed.
+
+        Returns
+        -------
+        numpy.ndarray
+            The x and y coordinates of the intersections.
+
+        numpy.ndarray
+            The x and y angles
+        """
+        # self.screen_bpm requires uv points to be fed in correct order
+        ordered_uv_points = Viewer._order_uv_points(self.reference_uvs, self.reference_screen_names)
+        beam_xy, beam_angles = self.reference_screen_bpm.compute_beam_metrics(
             ordered_uv_points, z_beam_positions
         )
         return beam_xy, beam_angles
@@ -199,8 +224,6 @@ if __name__ == '__main__':
     index = [i for i, screen_name in enumerate(screen_names) if screen_name=='LM2'][0]
     screen_names.pop(index)
     bpm.screens.pop(index)
-    bpm.screens[-1].xy_offset = numpy.array([10e-3, 0])
-    print(screen_names)
 
     poll_targets_trigger = {
         'lm2': ("haspp06:10000/p06/lmscreen/lm2", 'FrameTimeStr'),
@@ -210,7 +233,7 @@ if __name__ == '__main__':
     triggerer = LMScreenTangoTriggerer(poll_targets_trigger)
     viewer = Viewer(
         experiment_path, screen_names, bpm, debug_mode=False,
-        reference_uvs=ref_uv, update_triggerer=triggerer, xy_offsets=xy_offsets
+        reference_uvs=ref_uv, reference_screen_bpm=copy.deepcopy(bpm), reference_screen_names=screen_names, update_triggerer=triggerer, xy_offsets=xy_offsets
     )
     viewer.start_monitoring()
 
