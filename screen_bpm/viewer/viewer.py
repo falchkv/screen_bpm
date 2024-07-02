@@ -14,8 +14,11 @@ from screen_bpm.viewer.image_grid_plotter import PltGridPlotter
 
 class Viewer:
     def __init__(self, experiment_path, screen_names, screen_bpm,
-                 debug_mode=False, reference_uvs=None, update_triggerer=None):
+                 xy_offsets={}, debug_mode=False, reference_uvs=None,
+                 update_triggerer=None):
         self.maximum_update_rate = 3.0  # Hz
+        self.screen_names = screen_names
+        self.xy_offsets = xy_offsets
         # self.debug_mode = debug_mode
         self.reference_uvs = reference_uvs
         self.plotter = PltPlotter(
@@ -24,6 +27,7 @@ class Viewer:
             reference_uvs=reference_uvs, interval=self.maximum_update_rate)
         self.data_loader = LMScreenDataLoader(
             screen_names, debug_mode=debug_mode)
+
 
         if update_triggerer is not None:
             self.update_triggerer = update_triggerer
@@ -49,7 +53,6 @@ class Viewer:
             time.sleep(poll_delay)
 
     def update_plot(self, trigger_info):
-
         print(trigger_info)
         images = self.data_loader.load(trigger_info)
         processed = self.process_data(images)
@@ -65,25 +68,16 @@ class Viewer:
         self.frame_counter += 1
 
     def process_data(self, data):
+        # update xy_offsets
+        for screen, screen_name in zip(self.screen_bpm.screens, self.screen_names):
+            if screen_name in self.xy_offsets:
+                screen.xy_offset = self.xy_offsets[screen_name]
         uv_points = Viewer.get_uv_points(data)
 
         # where should the beam position be evaluated
         screen_zs = [screen.z_position for screen in self.screen_bpm.screens]
         extra_zs = [0, 90, 95]
         zs = numpy.array(sorted(screen_zs + extra_zs))
-
-
-        # self.screen_bpm requires uv points to be fed in correct order
-        # ordered_uv_points = [None] * len(data)
-        # for screen_name, uv_point in uv_points.items():
-        #     index = numpy.where(
-        #         numpy.array(self.data_loader.screen_names) == screen_name
-        #     )[0][0]
-        #     ordered_uv_points[index] = uv_point
-        #
-        # beam_xy, beam_angles = bpm.compute_beam_metrics(
-        #     ordered_uv_points, zs
-        # )
         beam_xy, beam_angles = Viewer.compute_beam(
             uv_points, zs, self.data_loader.screen_names)
 
@@ -183,7 +177,7 @@ class Viewer:
 
 
 if __name__ == '__main__':
-    from AutoKB.io.paths import experiment_path_from_id
+    from screen_bpm.io.paths import experiment_path_from_id
     experiment_id = '11018189'
     experiment_id = '11018129'
     experiment_path = experiment_path_from_id(experiment_id)
@@ -196,10 +190,16 @@ if __name__ == '__main__':
         'LM3': (242, 220),
         'LM4': (340, 269),
     }
+    xy_offsets = {
+        'LM2': numpy.zeros((2, )),
+        'LM3': numpy.zeros((2, )),
+        'LM4': numpy.zeros((2, )),
+    }
     # remove LM2, as it is not very well calibrated:
     index = [i for i, screen_name in enumerate(screen_names) if screen_name=='LM2'][0]
     screen_names.pop(index)
     bpm.screens.pop(index)
+    bpm.screens[-1].xy_offset = numpy.array([10e-3, 0])
     print(screen_names)
 
     poll_targets_trigger = {
@@ -210,7 +210,7 @@ if __name__ == '__main__':
     triggerer = LMScreenTangoTriggerer(poll_targets_trigger)
     viewer = Viewer(
         experiment_path, screen_names, bpm, debug_mode=False,
-        reference_uvs=ref_uv, update_triggerer=triggerer
+        reference_uvs=ref_uv, update_triggerer=triggerer, xy_offsets=xy_offsets
     )
     viewer.start_monitoring()
 
