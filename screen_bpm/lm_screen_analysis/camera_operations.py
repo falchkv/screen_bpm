@@ -2,6 +2,33 @@ import numpy
 import cv2 as cv
 
 
+def translate_camera(projection_matrix, translation_vector):
+    """
+    Returns the projection matrix corresponding to a camera that is translated relative to the input camera.
+
+    Parameters
+    ----------
+    projection_matrix : numpy.ndarray
+        (3, 4) projection matrix of input camera.
+
+    translation_vector : numpy.ndarray
+        (3, ) vector matrix, describing translation of output camera, relative to input camera.
+
+    Returns
+    -------
+    numpy.ndarray
+        Translated (3, 4) projection matrix.
+    """
+
+    camera_matrix, rotation_matrix, input_camera_center = decompose_projection_matrix(projection_matrix)
+    if translation_vector.ndim == 1:
+        translation_vector = numpy.expand_dims(translation_vector, axis=1)
+    output_camera_center = input_camera_center
+    output_camera_center[:3] += translation_vector * output_camera_center[-1]
+    output_projection_matrix = synthesize_projection_matrix(camera_matrix, rotation_matrix, output_camera_center)
+    return output_projection_matrix
+
+
 def rotate_camera(projection_matrix, rotation_matrix):
     """
     Returns the projection matrix corresponding to a camera that is rotated relative to the input camera.

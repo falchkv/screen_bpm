@@ -48,7 +48,7 @@ def test_decompose_projection_matrix(angle, axis, fx, fy, skew, principal_x, pri
 )
 def test_rotation_correspondance(angle, axis, fx, fy, skew, principal_x, principal_y, camera_center):
     """
-    Tests for decompose_projection_matrix()
+    Tests for rotate_camera()
     """
     camera_matrix = numpy.array([
         [fx, skew, principal_x],
@@ -72,6 +72,52 @@ def test_rotation_correspondance(angle, axis, fx, fy, skew, principal_x, princip
     x2_from_homography = homography @ x1
 
     numpy.testing.assert_array_almost_equal(x2, x2_from_homography, decimal=10)
+
+
+@pytest.mark.parametrize(
+    "angle, axis, fx, fy, skew, principal_x, principal_y, camera_center, ",
+    [
+        (0, 0, 1.0, 1.0, 0.0, 0.0, 0.0, [0, 0, 0, 1.0]),
+        (0, 0, 1.0, 1.0, 0.0, 0.0, 0.0, [0, 2, 0, 1.0]),
+        (0, 0, 1.0, 1.0, 0.0, 0.0, 0.0, [0, 0, 2, 1.0]),
+        (numpy.pi / 10, 1, 1.0, 1.0, 1.0, 0.0, 1.0, [0, 2, 0, 1.0]),
+        (-numpy.pi / 10, 2, 1.0, 1.0, -40.0, 0.0, 2.0, [2, 0, -5, 1.0]),
+        (numpy.pi / 10, 2, 3.0, 1.0, 0.0, 4.0, -6.0, [0, 3, 5, -1.0]),
+    ]
+)
+def test_translate_camera(angle, axis, fx, fy, skew, principal_x, principal_y, camera_center):
+    """
+    Tests for translate_camera()
+    """
+    n_points = 1
+    translation_vector = numpy.random.rand(3)
+    translation_vector = numpy.array([1, 0, 0])
+    camera_matrix = numpy.array([
+        [fx, skew, principal_x],
+        [0, fy, principal_y],
+        [0, 0, 1.0],
+    ])
+    euler_angles = [0, 0, 0]
+    euler_angles[axis] = angle
+    rotation_matrix = Rotation.from_euler(
+            'XYZ', euler_angles, degrees=False
+        ).as_matrix()
+    camera_center = numpy.array([camera_center]).T
+    H = synthesize_projection_matrix(camera_matrix, rotation_matrix, camera_center)
+    H_translated = translate_camera(H, translation_vector)
+
+    X = numpy.random.rand(4, n_points)
+    X[-1,:] = 1
+    X[:2, :] = 0
+
+    X_translated = numpy.zeros(X.shape)
+    for i, entry in enumerate(X.T):
+        X_translated[:, i] = entry
+        X_translated[:3, i] -= translation_vector * entry[-1]
+    x1 = H @ X_translated
+    x2 = H_translated @ X
+
+    numpy.testing.assert_array_almost_equal(x1, x2, decimal=5)
 
 
 @pytest.mark.parametrize(

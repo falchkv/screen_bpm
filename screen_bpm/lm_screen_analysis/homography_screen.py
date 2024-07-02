@@ -1,13 +1,12 @@
 import numpy
 
-
 class HomographyScreen:
     """
     Class for converting between pixel coordinates (u, v) and lab-coordinates
     (xyz).
     """
 
-    def __init__(self, z_position, homogrpahy):
+    def __init__(self, z_position, homogrpahy, xy_offset=numpy.zeros(2, )):
         """
         Parameters
         ---------
@@ -16,9 +15,13 @@ class HomographyScreen:
 
         homography : numpy.ndarray
             3x3 matrix converting camera image coordinates uv to xy lab-coordinates at z_position.
+
+        xy_offset : numpy.ndarray
+            Offset of camera in xy-plane, relative to center implied by homography.
         """
         self.z_position = z_position
         self.homography = homogrpahy
+        self.xy_offset = xy_offset
 
     def convert_xyz_input(self, xyz):
         """
@@ -97,6 +100,7 @@ class HomographyScreen:
         uv_hom = numpy.vstack([uv_points.T, numpy.ones((n_points, ))])
         xy_hom = self.homography @ uv_hom
         xy = xy_hom[:2, :] / xy_hom[-1, :]
+        xy = (xy.T + self.xy_offset).T
         xyz = numpy.vstack([xy, self.z_position * numpy.ones((n_points, ))]).T
 
         return xyz
@@ -119,6 +123,7 @@ class HomographyScreen:
         xyz_points = self.convert_xyz_input(xyz_points)
         n_points, _ = xyz_points.shape
         xy = xyz_points[:, :2]
+        xy = (xy - self.xy_offset)
         xy_hom = numpy.vstack([xy.T, numpy.ones((n_points, ))])
 
         uv_hom = numpy.linalg.inv(self.homography) @ xy_hom
