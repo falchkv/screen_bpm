@@ -18,6 +18,8 @@ class ProcessPlotter:
         self.line_zy = matplotlib.lines.Line2D
         self.line_zx = matplotlib.lines.Line2D
         self.image_plots = []
+        self.texts = None
+        self.text_offset = -9
 
     def terminate(self):
         plt.close('all')
@@ -37,18 +39,22 @@ class ProcessPlotter:
                 y_unit = 1e-3  # the unit given in m
                 z_unit = 1.0  # the unit given in m
                 # ZX
-                cax = self.ax[0]
                 self.line_zx.set_ydata(self.beam_x / x_unit)
                 self.line_zx.set_xdata(self.beam_z / z_unit)
                 self.points_zx.set_xdata(plot_dict['screen_xyz'][2] / z_unit)
                 self.points_zx.set_ydata(plot_dict['screen_xyz'][0] / x_unit)
 
                 # ZY
-                cax = self.ax[1]
                 self.line_zy.set_ydata(self.beam_y / y_unit)
                 self.line_zy.set_xdata(self.beam_z / z_unit)
                 self.points_zy.set_xdata(plot_dict['screen_xyz'][2] / z_unit)
                 self.points_zy.set_ydata(plot_dict['screen_xyz'][1] / y_unit)
+
+                # draw z_labels
+                if 'z_labels' in plot_dict:
+                    if self.texts is None:
+                        self.texts = [self.ax[1].text(z, self.text_offset, label) for z, label in zip(plot_dict['zs_of_interest'], plot_dict['z_labels'])]
+
 
                 # reference lines
                 if 'reference' in plot_dict:
@@ -61,16 +67,13 @@ class ProcessPlotter:
                     self.ref_line_zy.set_ydata(beam_y_ref / y_unit)
                     self.ref_line_zy.set_xdata(beam_z_ref / z_unit)
 
-                # Title
-                #self.fig.suptitle(
-                #    'count {:05d}'.format(plot_dict['count_id']))
 
         self.fig.canvas.draw()
         return True
 
     def __call__(self, pipe):
         self.pipe = pipe
-        self.fig, self.ax = plt.subplots(2, 1)
+        self.fig, self.ax = plt.subplots(2, 1, figsize=(14, 8))
 
         # ZX
         cax = self.ax[0]
@@ -78,9 +81,10 @@ class ProcessPlotter:
         cax.grid()
         # cax.set_xlabel('z / m')  # Removed as it overlaps title of next plot.
         cax.set_ylabel('x / mm')
-        self.line_zx, = cax.plot([0], [0], '-b.')
+        self.line_zx, = cax.plot([0], [0], '-b.', label='current')
         self.points_zx, = cax.plot([0], [0], 'bd')
-        self.ref_line_zx, = cax.plot([0], [0], '-kx')
+        self.ref_line_zx, = cax.plot([0], [0], '-kx', label='reference')
+        cax.legend()
 
         # ZY
         cax = self.ax[1]
@@ -88,9 +92,10 @@ class ProcessPlotter:
         cax.grid()
         cax.set_xlabel('z / m')
         cax.set_ylabel('y / mm')
-        self.line_zy, = cax.plot([0], [0], '-r.')
+        self.line_zy, = cax.plot([0], [0], '-r.', label='current')
         self.points_zy, = cax.plot([0], [0], 'rd')
-        self.ref_line_zy, = cax.plot([0], [0], '-kx')
+        self.ref_line_zy, = cax.plot([0], [0], '-kx', label='reference')
+        cax.legend()
 
         self.ax[0].set_ylim([-10, 10])
         self.ax[0].set_xlim([-1, 110])
@@ -102,6 +107,7 @@ class ProcessPlotter:
         timer = self.fig.canvas.new_timer(interval=100)
         timer.add_callback(self.call_back)
         timer.start()
+        plt.tight_layout()
         plt.show()
 
 

@@ -33,6 +33,12 @@ if __name__ == '__main__':
     screen_names.pop(index)
     bpm.screens.pop(index)
 
+    # where should the beam position be evaluated
+    screen_zs = [screen.z_position for screen in bpm.screens]
+    extra_zs = [0, 90, 95]
+    zs = numpy.array(sorted(screen_zs + extra_zs))
+    z_labels = ['source', 'LM3', 'LM4', 'micro', 'ptynami']
+
     poll_targets_trigger = {
         'lm2': ("haspp06:10000/p06/lmscreen/lm2", 'FrameTimeStr'),
         'lm3': ("haspp06:10000/p06/lmscreen/lm3", 'FrameTimeStr'),
@@ -60,10 +66,11 @@ if __name__ == '__main__':
 
     triggerer = LMScreenTangoTriggerer(poll_targets_trigger)
     viewer = Viewer(
-        None, screen_names, bpm, debug_mode=False,
+        None, screen_names, bpm, zs, debug_mode=False,
         reference_uvs=ref_uv, reference_screen_bpm=copy.deepcopy(bpm),
         reference_screen_names=screen_names, update_triggerer=triggerer,
-        xy_offsets=xy_offsets, update_offset_func=update_offset
+        xy_offsets=xy_offsets, update_offset_func=update_offset,
+        z_labels=z_labels
     )
     viewer.start_monitoring()
 

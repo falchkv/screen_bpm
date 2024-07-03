@@ -16,13 +16,15 @@ from screen_bpm.viewer.polling import TangoPoller
 
 
 class Viewer:
-    def __init__(self, experiment_path, screen_names, screen_bpm,
+    def __init__(self, experiment_path, screen_names, screen_bpm, zs_of_interest,
                  xy_offsets={}, debug_mode=False, reference_uvs=None,
                  reference_screen_bpm=None, reference_screen_names=None,
-                 update_triggerer=None, update_offset_func=None):
+                 update_triggerer=None, update_offset_func=None, z_labels=[]):
         self.maximum_update_rate = 2.0  # Hz
         self.update_offset_func = update_offset_func
         self.screen_names = screen_names
+        self.z_labels = z_labels
+        self.zs_of_interest = zs_of_interest
         self.xy_offsets = xy_offsets
         # self.debug_mode = debug_mode
         self.reference_uvs = reference_uvs
@@ -81,11 +83,7 @@ class Viewer:
             if screen_name in self.xy_offsets:
                 screen.xy_offset = self.xy_offsets[screen_name]
         uv_points = Viewer.get_uv_points(data)
-        # where should the beam position be evaluated
-        screen_zs = [screen.z_position for screen in self.screen_bpm.screens]
-        extra_zs = [0, 90, 95]
-        zs = numpy.array(sorted(screen_zs + extra_zs))
-        beam_xy, beam_angles = self.compute_beam(uv_points, zs)
+        beam_xy, beam_angles = self.compute_beam(uv_points, self.zs_of_interest)
 
         # Calculate screen xyz intersects
         ordered_uv_points = Viewer._order_uv_points(
@@ -98,14 +96,15 @@ class Viewer:
         processed_dict = {
             'beam_xy': beam_xy,
             'beam_angles': beam_angles,
-            'zs_of_interest': zs,
+            'zs_of_interest': self.zs_of_interest,
             'uv_points': uv_points,
             'screen_xyz': screen_xyz,
+            'z_labels': self.z_labels,
         }
 
         # create reference beam
         if self.reference_uvs is not None and self.reference_screen_bpm is not None and self.reference_screen_names is not None:
-            beam_xy_ref, beam_angles_ref = self.compute_reference_beam(zs)
+            beam_xy_ref, beam_angles_ref = self.compute_reference_beam(self.zs_of_interest)
             offset_reference_uvs = copy.deepcopy(self.reference_uvs)
             for i, screen_name in enumerate(self.screen_names):
                 uv = self.reference_uvs[screen_name]
@@ -115,7 +114,7 @@ class Viewer:
             processed_dict['reference'] = {
                 'beam_xy': beam_xy_ref,
                 'beam_angles': beam_angles_ref,
-                'zs_of_interest': zs,
+                'zs_of_interest': self.zs_of_interest,
                 'uv_points': offset_reference_uvs,
             }
 
@@ -215,7 +214,6 @@ if __name__ == '__main__':
 
     calibration_path = os.path.join('tests', 'test_data', 'calibration_1.h5')
     bpm, screen_names = screen_bpm.load_calibration(calibration_path)
-
     ref_uv = {
         'LM2': (230, 434),
         'LM3': (242, 220),
@@ -230,6 +228,12 @@ if __name__ == '__main__':
     index = [i for i, screen_name in enumerate(screen_names) if screen_name=='LM2'][0]
     screen_names.pop(index)
     bpm.screens.pop(index)
+
+    # where should the beam position be evaluated
+    screen_zs = [screen.z_position for screen in bpm.screens]
+    extra_zs = [0, 90, 95]
+    zs = numpy.array(sorted(screen_zs + extra_zs))
+    z_labels = ['source', 'LM3', 'LM4', 'micro', 'ptynami']
 
     poll_targets_trigger = {
         'lm2': ("haspp06:10000/p06/lmscreen/lm2", 'FrameTimeStr'),
@@ -256,9 +260,13 @@ if __name__ == '__main__':
         return xy_offsets
 
     triggerer = LMScreenTangoTriggerer(poll_targets_trigger)
+
     viewer = Viewer(
-        experiment_path, screen_names, bpm, debug_mode=False,
-        reference_uvs=ref_uv, reference_screen_bpm=copy.deepcopy(bpm), reference_screen_names=screen_names, update_triggerer=triggerer, xy_offsets=xy_offsets, update_offset_func=update_offset
+        experiment_path, screen_names, bpm, zs, debug_mode=False,
+        reference_uvs=ref_uv, reference_screen_bpm=copy.deepcopy(bpm),
+        reference_screen_names=screen_names, update_triggerer=triggerer,
+        xy_offsets=xy_offsets, update_offset_func=update_offset,
+        z_labels=z_labels
     )
     viewer.start_monitoring()
 
