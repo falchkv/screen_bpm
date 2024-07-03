@@ -11,6 +11,7 @@ from screen_bpm.lm_screen_analysis.image_operations import (
     extract_max_position)
 from screen_bpm.viewer.matplotlib_plotter import PltPlotter
 from screen_bpm.viewer.image_grid_plotter import PltGridPlotter
+from screen_bpm.viewer.polling import TangoPoller
 
 
 class Viewer:
@@ -238,7 +239,6 @@ if __name__ == '__main__':
             'microdiagy': ("haspp06mc01:10000/p06/motor/mi.33", 'Position'),
             'diagy': ("haspp06mc01:10000/p06/motor/mi.07", 'Position'),
         }
-        from beamline_diff.polling import TangoPoller
         poller = TangoPoller(poll_targets=poll_targets)
         poll_res = poller.poll_all()
         xy_offsets = {

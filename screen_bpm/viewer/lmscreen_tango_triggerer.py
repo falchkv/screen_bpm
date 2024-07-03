@@ -5,7 +5,7 @@ from dateutil import parser
 
 import numpy
 
-from beamline_diff.polling import TangoPoller
+from screen_bpm.viewer.polling import TangoPoller
 
 from screen_bpm.general_io import load_lm_screen_image, load_lm_screen_images
 
