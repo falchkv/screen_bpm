@@ -1,5 +1,6 @@
 import copy
 import threading
+import os
 import time
 
 import numpy
@@ -213,7 +214,7 @@ if __name__ == '__main__':
     experiment_id = '11018129'
     experiment_path = experiment_path_from_id(experiment_id)
 
-    calibration_path = 'lm_screen_calibration.h5'
+    calibration_path = os.path.join('tests', 'test_data', 'calibration_1.h5')
     bpm, screen_names = screen_bpm.load_calibration(calibration_path)
 
     ref_uv = {
