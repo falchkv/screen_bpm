@@ -6,7 +6,7 @@ import time
 import numpy
 
 #from lmscreen_save_triggerer import LMScreenSaveTriggerer, LMScreenDataLoader
-from lmscreen_tango_triggerer import LMScreenTangoTriggerer, LMScreenDataLoader
+from screen_bpm.viewer.lmscreen_tango_triggerer import LMScreenTangoTriggerer, LMScreenDataLoader
 from screen_bpm.lm_screen_analysis import screen_bpm
 from screen_bpm.lm_screen_analysis.image_operations import (
     extract_max_position)
@@ -37,7 +37,7 @@ class Viewer:
             self.update_triggerer = update_triggerer
         else:
             self.update_triggerer = LMScreenSaveTriggerer(
-               experiment_path, debug_mode=debug_mode,
+               experiment_path_b, debug_mode=debug_mode,
                poll_rate=self.maximum_update_rate)
         self.frame_counter = 0
 
