@@ -32,12 +32,11 @@ class Viewer:
         self.data_loader = LMScreenDataLoader(
             screen_names, debug_mode=debug_mode)
 
-
         if update_triggerer is not None:
             self.update_triggerer = update_triggerer
         else:
             self.update_triggerer = LMScreenSaveTriggerer(
-               experiment_path_b, debug_mode=debug_mode,
+               experiment_path, debug_mode=debug_mode,
                poll_rate=self.maximum_update_rate)
         self.frame_counter = 0
 
