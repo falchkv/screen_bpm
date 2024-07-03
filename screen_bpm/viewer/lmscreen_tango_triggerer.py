@@ -89,8 +89,6 @@ class LMScreenDataLoader:
     def __init__(self, screen_names, debug_mode=False):
         self.screen_names = screen_names  # name of screens to load, e.g. 'LM2'
         self.debug_mode = debug_mode
-        # to_poll = {key: POLL_TAREGETS[key] for key in screen_names}
-        # self.poller = TangoPoller(poll_targets=to_poll)
 
     def load(self, trigger_info):  # input parameters to be re-considered
         """
@@ -104,7 +102,6 @@ class LMScreenDataLoader:
         dict
             The data
         """
-        print('about to load...')
         lm_dict = get_lm_dict(keys=self.screen_names)  # function from macro testing?
         return lm_dict
 
@@ -160,11 +157,3 @@ if __name__ == '__main__':
 
     #triggerer = LMScreenTangoTriggerer(poll_targets_trigger)
     #triggerer.start_monitoring()
-    loader = LMScreenDataLoader(('LM3', 'LM4'))
-    img = loader.load(None)
-    while True:
-        cctv_dict = get_cctv_dict(keys=('cctv5'))
-        plt.imshow(cctv_dict['cctv5'])
-        plt.show()
-        time.sleep(1)
-    print(img)

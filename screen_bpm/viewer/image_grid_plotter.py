@@ -10,14 +10,8 @@ numpy.random.seed(19680801)
 
 
 class ProcessPlotter:
-    def __init__(self, reference_uvs=None, interval=100):
+    def __init__(self, interval=100):
         self.interval = interval
-
-        if reference_uvs is not None:
-            self.reference_uvs = reference_uvs
-        else:
-            self.reference_uvs = {}
-
         self.nrow, self.ncol = (2, 2)  # This should be dynamically determined
         self.image_plots = [
             [None for i in range(self.ncol)] for j in range(self.nrow)
@@ -33,6 +27,11 @@ class ProcessPlotter:
     def call_back(self):
         while self.pipe.poll():
             plot_dict = self.pipe.recv()
+            if 'reference_uv_points' in plot_dict:
+                reference_uvs = plot_dict['reference_uv_points']
+            else:
+                reference_uvs = None
+
             if plot_dict is None:
                 self.terminate()
                 return False
@@ -52,19 +51,19 @@ class ProcessPlotter:
                     cax.set_title(key)
 
                     # plot reference indicator
-                    if key in self.reference_uvs:
-                        y, x = self.reference_uvs[key]
+                    if key in reference_uvs:
+                        y, x = reference_uvs[key]
                         cax.plot(x, y, 'x', color=self.reference_color)
 
                     # plot current indicator
-                    if key in self.reference_uvs:
+                    if key in reference_uvs:
                         y, x = plot_dict['uv_points'][key]
                         cax.plot(x, y, 'x', color=self.current_color)
 
                     # TMP: print uv difference
-                    if key in self.reference_uvs:
+                    if key in reference_uvs:
                         y, x = plot_dict['uv_points'][key]
-                        y_ref, x_ref = self.reference_uvs[key]
+                        y_ref, x_ref = reference_uvs[key]
                         y_diff = y - y_ref
                         x_diff = x - x_ref
                         print(f'{key} diff: {y_diff}, {x_diff}')
@@ -93,8 +92,7 @@ class ProcessPlotter:
 class PltGridPlotter:
     def __init__(self, reference_uvs=None, interval=100):
         self.plot_pipe, plotter_pipe = mp.Pipe()
-        self.plotter = ProcessPlotter(
-            reference_uvs=reference_uvs, interval=interval)
+        self.plotter = ProcessPlotter(interval=interval)
         self.plot_process = mp.Process(
             target=self.plotter, args=(plotter_pipe,), daemon=True)
         self.plot_process.start()

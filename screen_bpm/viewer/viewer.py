@@ -27,8 +27,7 @@ class Viewer:
         self.reference_uvs = reference_uvs
         self.plotter = PltPlotter(
             reference_uvs=reference_uvs, interval=self.maximum_update_rate)
-        self.grid_plotter = PltGridPlotter(
-            reference_uvs=reference_uvs, interval=self.maximum_update_rate)
+        self.grid_plotter = PltGridPlotter(interval=self.maximum_update_rate)
         self.data_loader = LMScreenDataLoader(
             screen_names, debug_mode=debug_mode)
 
@@ -68,8 +67,10 @@ class Viewer:
         grid_plot_dict = {
             #'count_id': plot_dict['count_id'],
             'images': images,
-            'uv_points': processed['uv_points']
+            'uv_points': processed['uv_points'],
         }
+        if 'reference' in processed:
+            grid_plot_dict['reference_uv_points'] = processed['reference']['uv_points']
         self.plotter.plot(plot_dict)
         self.grid_plotter.plot(grid_plot_dict)
         self.frame_counter += 1
@@ -105,11 +106,17 @@ class Viewer:
         # create reference beam
         if self.reference_uvs is not None and self.reference_screen_bpm is not None and self.reference_screen_names is not None:
             beam_xy_ref, beam_angles_ref = self.compute_reference_beam(zs)
+            offset_reference_uvs = copy.deepcopy(self.reference_uvs)
+            for i, screen_name in enumerate(self.screen_names):
+                uv = self.reference_uvs[screen_name]
+                xyz = self.screen_bpm.screens[i].uv_to_xyz(uv)
+                xyz[:, :2] -= self.xy_offsets[screen_name]
+                offset_reference_uvs[screen_name] = self.screen_bpm.screens[i].xyz_to_uv(xyz)[0]
             processed_dict['reference'] = {
                 'beam_xy': beam_xy_ref,
                 'beam_angles': beam_angles_ref,
                 'zs_of_interest': zs,
-                'uv_points_ref': self.reference_uvs,
+                'uv_points': offset_reference_uvs,
             }
 
         return processed_dict
@@ -216,8 +223,8 @@ if __name__ == '__main__':
     }
     xy_offsets = {
         'LM2': numpy.zeros((2, )),
-        'LM3': numpy.zeros((2, )),
-        'LM4': numpy.zeros((2, )),
+        'LM3': numpy.array([0, 0]),
+        'LM4': numpy.array([0, 0]),
     }
     # remove LM2, as it is not very well calibrated:
     index = [i for i, screen_name in enumerate(screen_names) if screen_name=='LM2'][0]
@@ -242,8 +249,8 @@ if __name__ == '__main__':
         poller = TangoPoller(poll_targets=poll_targets)
         poll_res = poller.poll_all()
         xy_offsets = {
-            'LM2': numpy.zeros((2,)),
-            'LM3': numpy.zeros((2,)),
+            'LM2': numpy.array([0e-3, 0]),
+            'LM3': numpy.array([0, 0]),
             'LM4': numpy.array([poll_res['microdiagy'] - -4.9726, 0]) * 1e-3,
         }
         return xy_offsets
