@@ -17,8 +17,9 @@ class Viewer:
     def __init__(self, experiment_path, screen_names, screen_bpm,
                  xy_offsets={}, debug_mode=False, reference_uvs=None,
                  reference_screen_bpm=None, reference_screen_names=None,
-                 update_triggerer=None):
-        self.maximum_update_rate = 3.0  # Hz
+                 update_triggerer=None, update_offset_func=None):
+        self.maximum_update_rate = 2.0  # Hz
+        self.update_offset_func = update_offset_func
         self.screen_names = screen_names
         self.xy_offsets = xy_offsets
         # self.debug_mode = debug_mode
@@ -57,7 +58,8 @@ class Viewer:
             time.sleep(poll_delay)
 
     def update_plot(self, trigger_info):
-        print(trigger_info)
+        if self.update_offset_func is not None:
+            self.xy_offsets = self.update_offset_func()
         images = self.data_loader.load(trigger_info)
         processed = self.process_data(images)
         plot_dict = processed.copy()
@@ -72,14 +74,11 @@ class Viewer:
         self.frame_counter += 1
 
     def process_data(self, data):
-
-        self.xy_offsets['LM3'] = 10e-3*numpy.random.rand(2)# FAKE oFFSET
         # update xy_offsets
         for screen, screen_name in zip(self.screen_bpm.screens, self.screen_names):
             if screen_name in self.xy_offsets:
                 screen.xy_offset = self.xy_offsets[screen_name]
         uv_points = Viewer.get_uv_points(data)
-
         # where should the beam position be evaluated
         screen_zs = [screen.z_position for screen in self.screen_bpm.screens]
         extra_zs = [0, 90, 95]
@@ -105,7 +104,6 @@ class Viewer:
         # create reference beam
         if self.reference_uvs is not None and self.reference_screen_bpm is not None and self.reference_screen_names is not None:
             beam_xy_ref, beam_angles_ref = self.compute_reference_beam(zs)
-            print(beam_xy_ref)
             processed_dict['reference'] = {
                 'beam_xy': beam_xy_ref,
                 'beam_angles': beam_angles_ref,
@@ -230,10 +228,30 @@ if __name__ == '__main__':
         'lm3': ("haspp06:10000/p06/lmscreen/lm3", 'FrameTimeStr'),
         'lm4': ("haspp06:10000/p06/lmscreen/lm4", 'FrameTimeStr'),
     }
+
+    def update_offset():
+        """
+        Returns a dictionary of xy offsets for a set of screen names.
+        """
+        # The solution of passing this function to the viewer object is intended to keep overly specific syntax out of the viewer class.
+        poll_targets = {
+            'microdiagy': ("haspp06mc01:10000/p06/motor/mi.33", 'Position'),
+            'diagy': ("haspp06mc01:10000/p06/motor/mi.07", 'Position'),
+        }
+        from beamline_diff.polling import TangoPoller
+        poller = TangoPoller(poll_targets=poll_targets)
+        poll_res = poller.poll_all()
+        xy_offsets = {
+            'LM2': numpy.zeros((2,)),
+            'LM3': numpy.zeros((2,)),
+            'LM4': numpy.array([poll_res['microdiagy'] - -4.9726, 0]) * 1e-3,
+        }
+        return xy_offsets
+
     triggerer = LMScreenTangoTriggerer(poll_targets_trigger)
     viewer = Viewer(
         experiment_path, screen_names, bpm, debug_mode=False,
-        reference_uvs=ref_uv, reference_screen_bpm=copy.deepcopy(bpm), reference_screen_names=screen_names, update_triggerer=triggerer, xy_offsets=xy_offsets
+        reference_uvs=ref_uv, reference_screen_bpm=copy.deepcopy(bpm), reference_screen_names=screen_names, update_triggerer=triggerer, xy_offsets=xy_offsets, update_offset_func=update_offset
     )
     viewer.start_monitoring()
 
