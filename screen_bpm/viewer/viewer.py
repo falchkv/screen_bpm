@@ -231,7 +231,7 @@ if __name__ == '__main__':
 
     # where should the beam position be evaluated
     screen_zs = [screen.z_position for screen in bpm.screens]
-    extra_zs = [0, 90, 95]
+    extra_zs = [0, 93.6, 97.44]
     zs = numpy.array(sorted(screen_zs + extra_zs))
     z_labels = ['source', 'LM3', 'LM4', 'micro', 'ptynami']
 
